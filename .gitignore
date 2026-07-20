@@ -1,0 +1,116 @@
+## .NET / Visual Studio .gitignore
+## LibraryManagementSystem
+
+# Visual Studio cache/options directory
+.vs/
+
+# Build results
+bin/
+obj/
+[Rr]elease/
+[Dd]ebug/
+x64/
+x86/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio user-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Rider / JetBrains
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/
+
+# NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# MSBuild / build outputs
+*.dll
+*.exe
+*.pdb
+*.cache
+*.ilk
+*.meta
+*.tlog
+*.tmp
+*.tmp_proj
+*.vspscc
+*.vssscc
+*_i.c
+*_p.c
+*_h.h
+*.obj
+*.iobj
+*.pch
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.log
+*.vspx
+*.sap
+
+# ASP.NET Core
+project.lock.json
+.dockerignore
+
+# Publish output
+**/Properties/PublishProfiles/*.pubxml.user
+publish/
+PublishScripts/
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.VisualState.xml
+TestResult.xml
+*.coverage
+*.coveragexml
+coverage/
+
+# Entity Framework
+*.edmx.diagram
+Migrations/*.Designer.cs.orig
+
+# Secrets (never commit these)
+*.pfx
+*.p12
+appsettings.Development.json
+appsettings.*.Local.json
+secrets.json
+*.env
+.env
+
+# Rider/ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Backup files
+*.bak
+*~
+*.swp
