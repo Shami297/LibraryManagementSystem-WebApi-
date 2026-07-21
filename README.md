@@ -1,6 +1,6 @@
 # Library Management System — Web API
 
-A basic CRUD Web API built with **.NET 8**, **Entity Framework Core (Code-First)**, **MSSQL**, and **JWT Authentication**, following a layered architecture with the **Repository + Unit of Work** design pattern.
+A CRUD Web API built with **.NET 8**, **Entity Framework Core (Code-First)**, **MSSQL**, and **JWT Authentication**, following a layered architecture with the **Repository + Unit of Work** design pattern.
 
 Built as a technical assessment project.
 
@@ -12,15 +12,16 @@ The solution is split into 4 projects, each with a single responsibility:
 
 ```
 LibraryManagementSystem/
- ├── LibraryManagementSystem.API             → Controllers, Program.cs, JWT & Swagger config
- ├── LibraryManagementSystem.Application     → DTOs, Services (business logic), AutoMapper profiles
+ ├── LibraryManagementSystem.API             → Controllers, Middleware, Program.cs, JWT & Swagger config
+ ├── LibraryManagementSystem.Application     → DTOs, Services (business logic)
  ├── LibraryManagementSystem.Infrastructure  → DbContext, Repository implementations, Migrations
  └── LibraryManagementSystem.Core            → Entities, Interfaces (IGenericRepository, IUnitOfWork)
 ```
 
-**Design Pattern:** Repository + Unit of Work
-- `IGenericRepository<T>` — generic CRUD operations per entity, keeps data access decoupled from business logic
-- `IUnitOfWork` — wraps repositories and exposes a single `CompleteAsync()` (i.e. `SaveChangesAsync()`) so multiple changes commit as one atomic transaction
+**Design Pattern: Repository + Unit of Work**
+- `IGenericRepository<T>` — generic CRUD operations shared across all entities, keeps data access decoupled from business logic
+- `IBorrowRecordRepository` — extends the generic repository with entity-specific queries (`.Include()` for eager loading), showing how the pattern scales beyond plain CRUD when needed
+- `IUnitOfWork` — wraps all repositories and exposes a single `CompleteAsync()` (`SaveChangesAsync()`), so multi-entity operations (e.g. borrowing a book) commit as **one atomic transaction**
 
 ---
 
@@ -34,14 +35,14 @@ LibraryManagementSystem/
 | Auth | JWT Bearer Authentication |
 | Password Hashing | BCrypt.Net-Next |
 | API Docs | Swagger / Swashbuckle |
-| Object Mapping | AutoMapper |
+| Error Handling | Custom global exception middleware |
 
 ---
 
 ## 📦 Prerequisites
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- SQL Server (local, Docker, or Azure SQL) — connection string configurable
+- SQL Server (local, Docker, or Azure SQL)
 - EF Core CLI tools:
   ```bash
   dotnet tool install --global dotnet-ef
@@ -58,7 +59,7 @@ git clone <your-repo-url>
 cd LibraryManagementSystem
 ```
 
-### 2. Configure the database connection
+### 2. Configure the database connection & JWT settings
 
 Update `LibraryManagementSystem.API/appsettings.json`:
 
@@ -76,7 +77,11 @@ Update `LibraryManagementSystem.API/appsettings.json`:
 }
 ```
 
-> ⚠️ Replace the `Jwt:Key` with your own secret (minimum 32 characters) before deploying anywhere beyond local testing.
+> ⚠️ For anything beyond local testing, move `Jwt:Key` into **User Secrets** or environment variables instead of committing it in `appsettings.json`:
+> ```bash
+> dotnet user-secrets init --project LibraryManagementSystem.API
+> dotnet user-secrets set "Jwt:Key" "your-real-secret-key" --project LibraryManagementSystem.API
+> ```
 
 ### 3. Restore dependencies
 
@@ -94,7 +99,7 @@ dotnet ef migrations add InitialCreate --project LibraryManagementSystem.Infrast
 dotnet ef database update --project LibraryManagementSystem.Infrastructure --startup-project LibraryManagementSystem.API
 ```
 
-This generates the schema in MSSQL directly from the entity classes — no manual SQL scripts required.
+The schema is generated entirely from the entity classes — no manual SQL scripts required.
 
 ### 5. Run the API
 
@@ -112,13 +117,14 @@ https://localhost:7268/swagger
 
 ## 🔐 Authentication Flow
 
-1. **Register** a user → `POST /api/auth/register`
+1. **Register** → `POST /api/auth/register`
 2. **Login** → `POST /api/auth/login` → returns a JWT token
-3. Click **Authorize** in Swagger and enter:
+3. In Swagger, click **Authorize** and enter:
    ```
    Bearer <your-token-here>
    ```
-4. All protected endpoints (e.g. `/api/books`) will now accept your requests.
+4. All protected endpoints will now accept your requests.
+5. To verify auth is actually enforced: click **Authorize → Logout**, then retry a protected endpoint — expect `401 Unauthorized`.
 
 ---
 
@@ -126,22 +132,22 @@ https://localhost:7268/swagger
 
 ### Auth
 
-| Method | Endpoint | Description | Auth Required |
+| Method | Endpoint | Description | Auth |
 |---|---|---|---|
 | POST | `/api/auth/register` | Register a new user | ❌ |
-| POST | `/api/auth/login` | Login and receive JWT token | ❌ |
+| POST | `/api/auth/login` | Login, receive JWT token | ❌ |
 
 ### Books
 
-| Method | Endpoint | Description | Auth Required |
+| Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| GET | `/api/books` | Get all books | ✅ |
+| GET | `/api/books` | Get all books (excludes soft-deleted) | ✅ |
 | GET | `/api/books/{id}` | Get a book by id | ✅ |
 | POST | `/api/books` | Create a new book | ✅ |
 | PUT | `/api/books/{id}` | Update an existing book | ✅ |
-| DELETE | `/api/books/{id}` | Delete a book | ✅ |
+| DELETE | `/api/books/{id}` | Soft-delete a book (`IsDeleted = true`) | ✅ |
 
-**Sample request body — create book:**
+**Sample — create book:**
 ```json
 {
   "title": "Clean Code",
@@ -152,25 +158,104 @@ https://localhost:7268/swagger
 }
 ```
 
+### Members
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| GET | `/api/members` | Get all members | ✅ |
+| GET | `/api/members/{id}` | Get a member by id | ✅ |
+| POST | `/api/members` | Create a new member | ✅ |
+| PUT | `/api/members/{id}` | Update an existing member | ✅ |
+| DELETE | `/api/members/{id}` | Delete a member | ✅ |
+
+**Sample — create member:**
+```json
+{
+  "fullName": "John Doe",
+  "email": "john.doe@example.com"
+}
+```
+
+### Borrow Records
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| GET | `/api/borrowrecords` | Get all borrow records | ✅ |
+| POST | `/api/borrowrecords/borrow` | Borrow a book | ✅ |
+| PUT | `/api/borrowrecords/return/{id}` | Return a borrowed book | ✅ |
+| GET | `/api/borrowrecords/member/{memberId}` | Borrow history for a member | ✅ |
+| GET | `/api/borrowrecords/book/{bookId}` | Borrow history for a book | ✅ |
+
+**Sample — borrow a book:**
+```json
+POST /api/borrowrecords/borrow
+{
+  "bookId": 1,
+  "memberId": 1
+}
+```
+
+**Business rules enforced:**
+- Book and Member must exist
+- `AvailableCopies` must be greater than 0 to borrow
+- Borrowing decrements `AvailableCopies`; returning increments it
+- A book can't be "returned" twice
+- Borrow + copy-count update commit together as **one transaction** via Unit of Work
+
 ---
 
 ## 🗄️ Entities
 
-- **Book** — Title, Author, ISBN, TotalCopies, AvailableCopies
-- **Member** — FullName, Email, JoinedAt
-- **BorrowRecord** — links a Book and Member with borrow/return dates
-- **ApplicationUser** — Username, PasswordHash (BCrypt), Role
+- **Book** — Title, Author, ISBN (unique), TotalCopies, AvailableCopies, IsDeleted (soft delete)
+- **Member** — FullName, Email (unique), JoinedAt
+- **BorrowRecord** — links a Book and Member, with BorrowedAt / ReturnedAt (nullable)
+- **ApplicationUser** — Username (unique), PasswordHash (BCrypt), Role
+
+**Relationships:** `BorrowRecord` has both a foreign key (`BookId`, `MemberId`) and a navigation property (`Book`, `Member`). The FK is what's physically stored in the database; the navigation property lets EF Core eager-load related data via `.Include()` without extra manual queries — used in the borrow-history endpoints above.
 
 ---
 
-## 🧪 Testing
+## 🧹 Soft Delete (Books)
 
-1. Run the project (`dotnet run`)
-2. Open Swagger UI (`/swagger`)
-3. Register → Login → copy JWT token
-4. Click **Authorize**, paste `Bearer <token>`
-5. Test CRUD endpoints under `/api/books`
-6. To confirm auth is enforced: click **Logout** in the Authorize popup, then retry a request — you should get `401 Unauthorized`
+`Book.IsDeleted` defaults to `false` at the database level (`HasDefaultValue(false)`), and a **global query filter** (`HasQueryFilter(b => !b.IsDeleted)`) is applied in `LibraryDbContext`. This means:
+- Every query against `Book` automatically excludes soft-deleted rows — no need to repeat `.Where(!IsDeleted)` anywhere
+- `DELETE /api/books/{id}` sets `IsDeleted = true` instead of physically removing the row
+- To view or restore soft-deleted rows, the filter can be bypassed explicitly with `.IgnoreQueryFilters()`
+
+---
+
+## 🛡️ Global Error Handling
+
+A custom `ExceptionHandlingMiddleware` sits early in the request pipeline and catches any unhandled exception, returning a **consistent JSON error shape** instead of a raw stack trace:
+
+```json
+{
+  "statusCode": 500,
+  "message": "An unexpected error occurred. Please try again later."
+}
+```
+
+| Exception Type | Status Code |
+|---|---|
+| `KeyNotFoundException` | 404 |
+| `UnauthorizedAccessException` | 401 |
+| `ArgumentException` / `InvalidOperationException` | 400 |
+| Anything else | 500 (real message logged server-side, hidden from client) |
+
+Expected validation failures (e.g. "book not found," "no available copies") are still returned directly from controllers via `NotFound()` / `BadRequest()` — the middleware is a safety net for genuinely unexpected failures, not a replacement for normal validation.
+
+---
+
+## 🧪 Testing via Swagger
+
+1. Run the project (`dotnet run`) and open `/swagger`
+2. `POST /api/auth/register` → then `POST /api/auth/login` → copy the JWT token
+3. Click **Authorize**, enter `Bearer <token>`
+4. Test Books / Members CRUD
+5. Borrow a book via `POST /api/borrowrecords/borrow`, confirm `AvailableCopies` drops on `GET /api/books/{id}`
+6. Return it via `PUT /api/borrowrecords/return/{id}`, confirm `AvailableCopies` goes back up
+7. Check `GET /api/borrowrecords/member/{memberId}` and `GET /api/borrowrecords/book/{bookId}` for history views
+8. Log out of Authorize and retry any protected endpoint → confirm `401 Unauthorized`
 
 ---
 
@@ -178,38 +263,43 @@ https://localhost:7268/swagger
 
 ```
 Core/
- ├── Entities/           → Book, Member, BorrowRecord, ApplicationUser
- └── Interfaces/         → IGenericRepository, IUnitOfWork
+ ├── Entities/            → Book, Member, BorrowRecord, ApplicationUser
+ └── Interfaces/          → IGenericRepository, IBorrowRecordRepository, IUnitOfWork
 
 Infrastructure/
- ├── Data/                → LibraryDbContext
- ├── Repositories/        → GenericRepository, UnitOfWork
- └── Migrations/          → EF Core generated migrations
+ ├── Data/                 → LibraryDbContext (query filters, indexes, relationships)
+ ├── Repositories/         → GenericRepository, BorrowRecordRepository, UnitOfWork
+ └── Migrations/           → EF Core generated migrations
 
 Application/
- ├── DTOs/                → RegisterDto, LoginDto
- └── Services/            → AuthService
+ ├── DTOs/                 → RegisterDto, LoginDto, BorrowBookDto
+ └── Services/             → AuthService
 
 API/
- ├── Controllers/         → AuthController, BooksController
- └── Program.cs           → DI, JWT, Swagger, EF Core configuration
+ ├── Controllers/          → AuthController, BooksController, MembersController, BorrowRecordsController
+ ├── Middleware/            → ExceptionHandlingMiddleware
+ └── Program.cs             → DI, JWT, Swagger, EF Core configuration
 ```
 
 ---
 
-## 📝 Notes
+## 📝 Key Implementation Notes
 
-- Passwords are hashed using **BCrypt** before storage — plain-text passwords are never persisted.
-- Database schema is fully **Code-First** — the DB is generated and versioned entirely through EF Core migrations.
-- JWT tokens are signed using **HMAC-SHA256** with a symmetric key from configuration.
+- Passwords are hashed with **BCrypt** — plain-text passwords are never persisted.
+- Database schema is fully **Code-First** — generated and versioned entirely through EF Core migrations.
+- JWT tokens are signed with **HMAC-SHA256** using a symmetric key from configuration.
+- Borrowing/returning uses **Unit of Work** to ensure the book's copy count and the borrow record update atomically in one transaction.
+- Soft delete on `Book` uses EF Core **global query filters** rather than manual filtering in every query.
+- A **global exception middleware** ensures all unhandled errors return a consistent JSON shape and never leak internal exception details to the client.
 
 ---
 
 ## 📌 Future Improvements
 
-- Add Member and BorrowRecord CRUD endpoints
-- Implement borrow/return logic with available-copy tracking
-- Add role-based authorization (Admin vs User)
-- Add FluentValidation for stricter input validation
-- Add unit tests for services and repositories
-- Add refresh token support
+- Add DTOs + AutoMapper for all entities (currently entities are bound directly for simplicity)
+- Role-based authorization (Admin vs Member-facing endpoints)
+- Soft delete for `Member` for consistency with `Book`
+- FluentValidation for richer input validation
+- Unit tests for services and repositories
+- Refresh token support for JWT
+- Pagination on list endpoints (`GET /api/books`, `GET /api/members`)
