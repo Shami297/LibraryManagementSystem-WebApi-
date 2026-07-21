@@ -19,8 +19,14 @@ namespace LibraryManagementSystem.Infrastructure.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.Entity<Book>().Property(b => b.isDeleted).HasDefaultValue(false);
+            // Global query filter
+            modelBuilder.Entity<Book>().HasQueryFilter(b => !b.isDeleted);
+            modelBuilder.Entity<Member>().HasQueryFilter(b => !b.isDeleted);
+
             modelBuilder.Entity<Book>().HasIndex(b => b.ISBN).IsUnique();
             modelBuilder.Entity<ApplicationUser>().HasIndex(u => u.Username).IsUnique();
+            modelBuilder.Entity<Member>().HasIndex(m => m.Email).IsUnique();
 
             modelBuilder.Entity<BorrowRecord>()
                 .HasOne(br => br.Book)

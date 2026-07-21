@@ -11,7 +11,7 @@ namespace LibraryManagementSystem.Core.Interfaces
     {
         IGenericRepository<Book> Books { get; }
         IGenericRepository<Member> Members { get; }
-        IGenericRepository<BorrowRecord> BorrowRecords { get; }
+        IBorrowRecordRepository BorrowRecords { get; }
         IGenericRepository<ApplicationUser> Users { get; }
         Task<int> CompleteAsync();
     }

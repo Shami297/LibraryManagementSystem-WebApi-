@@ -23,13 +23,15 @@ namespace LibraryManagementSystem.Application.Services
             _config = config;
         }
 
-        public async Task<ApplicationUser> RegisterAsync(string username, string password)
+        public async Task<ApplicationUser> RegisterAsync(string username, string password, string email, string role)
         {
             var user = new ApplicationUser
             {
                 Username = username,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
-                Role = "User"
+                Role = role,
+                Email = email,
+                Creation = DateTime.UtcNow
             };
             await _uow.Users.AddAsync(user);
             await _uow.CompleteAsync();

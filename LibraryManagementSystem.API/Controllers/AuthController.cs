@@ -1,4 +1,4 @@
-﻿using LibraryManagementSystem.API.DTOs;
+﻿using LibraryManagementSystem.Application.DTOs;
 using LibraryManagementSystem.Application.Services;
 using LibraryManagementSystem.Core.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -21,7 +21,7 @@ namespace LibraryManagementSystem.API.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterDto dto)
         {
-            var user = await _authService.RegisterAsync(dto.Username, dto.Password);
+            var user = await _authService.RegisterAsync(dto.Username, dto.Password, dto.Email, dto.Role);
             return Ok(new { user.Id, user.Username });
         }
 

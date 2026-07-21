@@ -54,7 +54,8 @@ namespace LibraryManagementSystem.API.Controllers
             var book = await _uow.Books.GetByIdAsync(id);
             if (book == null) return NotFound();
 
-            _uow.Books.Delete(book);
+            book.isDeleted = true; 
+            _uow.Books.Update(book);
             await _uow.CompleteAsync();
             return NoContent();
         }

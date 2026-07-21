@@ -14,6 +14,7 @@ namespace LibraryManagementSystem.Core.Entities
         public string ISBN { get; set; } = string.Empty;
         public int TotalCopies { get; set; }
         public int AvailableCopies { get; set; }
+        public bool isDeleted { get; set; } = false;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

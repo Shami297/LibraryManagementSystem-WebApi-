@@ -14,7 +14,7 @@ namespace LibraryManagementSystem.Infrastructure.Repositories
         private readonly LibraryDbContext _context;
         public IGenericRepository<Book> Books { get; }
         public IGenericRepository<Member> Members { get; }
-        public IGenericRepository<BorrowRecord> BorrowRecords { get; }
+        public IBorrowRecordRepository BorrowRecords { get; }
         public IGenericRepository<ApplicationUser> Users { get; }
 
         public UnitOfWork(LibraryDbContext context)
@@ -22,7 +22,7 @@ namespace LibraryManagementSystem.Infrastructure.Repositories
             _context = context;
             Books = new GenericRepository<Book>(_context);
             Members = new GenericRepository<Member>(_context);
-            BorrowRecords = new GenericRepository<BorrowRecord>(_context);
+            BorrowRecords = new BorrowRecordRepository(_context);
             Users = new GenericRepository<ApplicationUser>(_context);
         }
 

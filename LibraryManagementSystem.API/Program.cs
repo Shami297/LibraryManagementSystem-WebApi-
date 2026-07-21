@@ -1,3 +1,4 @@
+using LibraryManagementSystem.API.Middleware;
 using LibraryManagementSystem.Application.Services;
 using LibraryManagementSystem.Core.Interfaces;
 using LibraryManagementSystem.Infrastructure.Data;
@@ -84,6 +85,7 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
